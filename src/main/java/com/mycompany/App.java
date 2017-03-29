@@ -1,10 +1,16 @@
 package com.mycompany;
 
+import org.apache.log4j.Logger;
 import org.quartz.JobDetail;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.impl.StdSchedulerFactory;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.jms.core.JmsTemplate;
+import javax.jms.Destination;
+import javax.jms.JMSException;
+import javax.jms.TextMessage;
 
 /**
  * Hello world!
@@ -12,31 +18,24 @@ import org.quartz.impl.StdSchedulerFactory;
  */
 public class App 
 {
+	private static final Logger log = Logger.getLogger(App.class);
+	
     public static void main( String[] args )
     {
-        System.out.println( "Starting the scheduler" );
-		int WAIT_SECONDS = 30; // let the main thread sleep, also how long before starting the job
-		String jobParams = "sayhello";
-		BatchRules myBatchRules = new BatchRules("job1", "jobGroup1", jobParams);
+    	log.debug("inside main");
+    	ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(
+				"applicationContext.xml");
+    	try {
+    		JmsTemplate jmsTemplate = (JmsTemplate) context.getBean("jmsTemplate");
+    		Destination destination = (Destination) context.getBean("messageDestination");
 
-		try {
-			Scheduler myScheduler = StdSchedulerFactory.getDefaultScheduler();
-
-			Runtime.getRuntime().addShutdownHook(
-					new ShutdownScheduler(myScheduler));
-
-			myScheduler.start();
-			myBatchRules.batchJob(myScheduler, WAIT_SECONDS);
-
-			for (; !myScheduler.isShutdown();) {
-				Thread.sleep(WAIT_SECONDS * 1000L);
-			}
-
-			myScheduler = null;
-		} catch (Exception e) {
+    		TextMessage textMessage = (TextMessage) jmsTemplate.receive(destination);		
+			System.out.println("Consumer receives " + textMessage.getText());
+		} catch (JMSException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} finally {
+			context.close();
 		}
-		myBatchRules = null;		
-		System.out.println( "Ending the scheduler" );
     }
 }
